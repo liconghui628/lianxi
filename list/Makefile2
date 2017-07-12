@@ -1,0 +1,15 @@
+list:test.o list.o qsort.o
+	gcc -o list test.o list.o qsort.o
+
+test.o:test.c list.h
+	gcc -c test.c list.h
+
+list.o:list.c list.h
+	gcc -c list.c list.h
+
+qsort.o:qsort.c
+	gcc -c qsort.c
+	
+.PHONY:clean
+clean:
+	@rm *.o *.gch list

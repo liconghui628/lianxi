@@ -1,0 +1,53 @@
+<html>
+ <head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>  
+  	<title>hailin gateway</title>
+ <style type="text/css">
+ body,td,th {
+	font-weight: bold;
+}
+ body {
+	background-color: #8AB0F1;
+	text-align: right;
+}
+ </style>
+</head>
+ <body>
+ <header id="yemei">
+   <div align="right" style="color: #2644F7; font-size: 24px;"><em>北京海林节能科技股份有限公司</em></div>
+   </header>
+ </p>
+ <p>&nbsp;</p>
+ <p>&nbsp;</p>
+ <p align="center">用户登录</p>
+ <hr align="center" width="400" size="2">
+ <p align="center">UserName:
+  <input type="text" value="admin" id="name" style="width:150px;height:25px"/>
+ </p>
+ <p align="center"><br/>
+  PassWord:   
+  <input type="password" id="pass" style="width:150px;height:25px"  onkeydown='if(event.keyCode==13){loginbutton.click()}'/>
+ </p>
+ <p align="center"><span style="font-size:14px;color: red" id="errmess"></span>&nbsp;</p>
+ <p align="center">
+   <input type="button" value="LogIn" id="loginbutton" style="color: green;height:25px;width:200px;" onClick="go()"/>
+ </p>
+ <hr align="center" width="400" size="2">
+ <p align="center">&nbsp;</p>
+</body>
+  	<script type="text/javascript">
+  	function go(){
+   		var name=document.getElementById("name").value;
+   		var pass=document.getElementById("pass").value;
+		//document.writeln(name);
+		//document.writeln(pass);
+   		if(name=="admin" && pass=="admin"){
+			//alert("Login Success !"); 
+			window.location.href="/first.html"
+   		}else{
+			document.getElementById("errmess").innerHTML="UserName or PassWord error !";
+    		//alert("UserName or PassWord error !");
+  		}
+  }	
+  </script>
+</html>

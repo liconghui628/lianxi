@@ -1,0 +1,56 @@
+<html>
+ <head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>  
+  	<title>hailin gateway</title>
+ <style type="text/css">
+ body {
+	background-color: #7DA3EF;
+	color: #070707;
+	margin-left: 13%;
+	margin-right: 9%;
+	margin-top: 2%;
+}
+ </style> 
+ <script language="JavaScript" src="load.js"></script> 
+</head>
+ <body onload="firload()">
+ <div style="width: 1000px; height: 200px; color: #060606;">
+ <h1 style="text-align: center; color: #2629C9; font-size: 30px;"><em>Welcom To Hailin Gateway</em></h1>
+   <hr align="left" width="900" size="2">
+   <p><span style="font-size: 24px; color: #066711;">系统信息：</span>&nbsp;&nbsp;&nbsp;&nbsp;
+     <label for="textfield" style="color: #070707">CPU:</label>
+     <input name="textfield" type="text" disabled id="CPU" value="8%" size="3" readonly>
+     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+     <label for="textfield2"><span style="color: #0F0F0F">MEM:</span></label>
+     <input name="textfield2" type="text" disabled id="MEM" autocomplete="off" value="25%" size="3" readonly>
+     <label for="textfield3" style="color: #070707">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DISK:</label>
+     <input name="textfield3" type="text" disabled id="DISK" value="30%" size="3" readonly>
+   &nbsp;&nbsp;&nbsp;
+   <label for="textfield4">IP:</label>
+   <input name="textfield4" type="text" disabled id="IP" value="0.0.0.0" size="16" readonly>
+   &nbsp;&nbsp;
+   <label for="textfield">MAC:</label>
+   <input name="textfield" type="text" disabled id="MAC" value="00:00:00:00:00:00" size="18" readonly>
+   </p>
+   <hr align="left" width="900" size="2">
+ <form action="file.cgi" method="post" enctype="multipart/form-data"  target="id_iframe">
+ 	<span style="font-size: 24px; color: #066711;">配置文件:</span>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+    <input type="file" name="fileField" id="file1" style="height:25px;width:250px;">
+   <input type="submit" name="submit" id="submit" value="更新" style="height:25px;width:100px;">
+   <span style="font-size: 18px; height:25px;width:200px; color: #061AF9;" id="upresult"></span>
+   <a href="/file/ddc.db">下载配置文件</a>
+ </form>
+ <iframe id="id_iframe" name="id_iframe" style="display:none;"></iframe>
+ <hr align="left" width="900" size="2">
+ </div>
+ <p>&nbsp;</p>
+ <p>&nbsp;</p>
+ <p>&nbsp;</p>
+ <p>&nbsp;</p>
+ <p>&nbsp;</p>
+ <p>&nbsp;</p>
+ <p>&nbsp;</p>
+ <p>&nbsp;</p>
+</body>
+</html>

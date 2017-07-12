@@ -1,0 +1,6 @@
+本机作为服务器进行测试
+开启TFTP服务器 sudo service tftpd-hpa restart 
+tftp服务器目录为/tftpboot 里面有文件a.txt
+请求文件a.txt:
+./a.out 127.0.0.1 a.txt
+

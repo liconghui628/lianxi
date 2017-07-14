@@ -8,6 +8,8 @@
 #include <pthread.h>
 
 #define MAX_TIMER_COUNT (50)
+#define MAX_ARRAY_SIZE  (5)
+#define MAX_THREAD_COUNT (5)
 
 #define _DEBUG_ 0
 
@@ -18,6 +20,7 @@
 #endif
 
 typedef void TimerFunc(void *arg);
+
 typedef struct node{
 	struct node *next;
 	struct node *prev;
@@ -29,9 +32,18 @@ typedef struct node{
     unsigned int timer_id;
 }TimerNode;
 
+typedef struct ThreadData{
+    pthread_t threadID;
+    pthread_mutex_t *mutex;
+    pthread_cond_t *cond;
+    TimerNode *timerArray[MAX_ARRAY_SIZE];
+    int haveData;
+}TimerThread;
+
 static TimerNode *g_timer_head = NULL;
 static TimerNode *g_timer_tail = NULL;
 static pthread_mutex_t *g_mutex = NULL;
+static TimerThread *ThreadArray = NULL;
 
 static int timer_init(void);
 static int timer_count(void);
@@ -39,6 +51,47 @@ static void sigalarm_handle(int sigint);
 static int set_timer(int sec);
 int timer_add(int sec, TimerFunc *timer_cb, void *arg, int repeat);
 int timer_del(int timer_id);
+
+//分发定时任务给线程
+static int timer_dispatch(TimerNode *timerNode)
+{
+    DEBUG("F:%s,f:%s,L:%d\n",  __FILE__, __func__, __LINE__);
+    int i = 0, j = 0, index = 0, size = 0;
+    //找一个当前没有任务的线程
+    for (i = 0; i < MAX_THREAD_COUNT; i++) {
+        if (ThreadArray[i].haveData == 0) {
+            ThreadArray[i].timerArray[0] = timerNode;
+            ThreadArray[i].haveData++;
+            DEBUG("F:%s,f:%s,L:%d, wake up [PID:%lu]\n",  __FILE__, __func__, __LINE__, ThreadArray[i].threadID);
+            pthread_cond_signal(ThreadArray[i].cond);
+            return 0;
+        }
+    }
+    //找一个负载最小的线程分发
+    size = ThreadArray[0].haveData;
+    for (i = 0; i < MAX_THREAD_COUNT; i++) {
+        if (ThreadArray[i].haveData < size) {
+            size = ThreadArray[i].haveData;
+            index = i;
+        }
+    }
+    DEBUG("F:%s,f:%s,L:%d, index = %d [PID:%lu]\n",  __FILE__, __func__, __LINE__, index,ThreadArray[index].threadID);
+    //pthread_mutex_lock(ThreadArray[index].mutex);
+    for (j = 0; j < MAX_ARRAY_SIZE; j++) {
+        printf("F:%s,f:%s,L:%d, ThreadArray[%d].timerArray[%d] = %p\n", __FILE__, __func__, __LINE__,index, j, ThreadArray[index].timerArray[j]);
+        if (ThreadArray[index].timerArray[j] == NULL) {
+            ThreadArray[index].timerArray[j] = timerNode;
+            ThreadArray[index].haveData++;
+            //pthread_mutex_unlock(ThreadArray[index].mutex);
+            DEBUG("F:%s,f:%s,L:%d, wake up [PID:%lu]\n",  __FILE__, __func__, __LINE__, ThreadArray[index].threadID);
+            pthread_cond_signal(ThreadArray[index].cond);
+            return 0;
+        }
+    }
+    //pthread_mutex_unlock(ThreadArray[index].mutex);
+    printf("F:%s,f:%s,L:%d, timerID:%u dispatch failed !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n", __FILE__, __func__, __LINE__, timerNode->timer_id);
+    return -1;
+}
 
 //设置定时器
 static int set_timer(int sec)
@@ -58,16 +111,20 @@ static void sigalarm_handle(int sigint)
     TimerNode *tmpNode = NULL, *delNode = NULL, *tmpNode2 = NULL, *nextNode = NULL;
     if (sigint != SIGALRM) return;
 
+    DEBUG("--------------------------------------------------------------------\n");
     DEBUG("[%ld]F:%s,f:%s,L:%d,timer_count:%d\n", time(NULL), __FILE__, __func__, __LINE__, timer_count());
 
-    DEBUG("--------------------------------------------------------------------\n");
     for(tmpNode = g_timer_head->next; tmpNode != g_timer_tail; tmpNode = tmpNode->next){
         // 时间到则执行定时任务，没到时间则更新剩余时间sec
         tmpNode->sec--;
         //DEBUG("F:%s,f:%s,L:%d,[CHK]: timer_id:%d, sec:%ld repeat:%d\n", __FILE__, __func__, __LINE__,tmpNode->timer_id, tmpNode->sec, tmpNode->repeat);
         if (tmpNode->sec <= 0) {
             DEBUG("F:%s,f:%s,L:%d,[GET]: timer_id:%d, sec:%ld repeat:%d\n", __FILE__, __func__, __LINE__,tmpNode->timer_id, tmpNode->sec, tmpNode->repeat);
-            tmpNode->timer_cb(tmpNode->arg);
+            //tmpNode->timer_cb(tmpNode->arg);
+            //分发给线程
+            if (timer_dispatch(tmpNode) < 0) {
+                printf("F:%s,f:%s,L:%d,handle failed, timer_id:%d, sec:%ld repeat:%d\n", __FILE__, __func__, __LINE__,tmpNode->timer_id, tmpNode->sec, tmpNode->repeat);
+            }
         }
     }
 
@@ -75,7 +132,8 @@ static void sigalarm_handle(int sigint)
     tmpNode = g_timer_head->next;
     while (tmpNode != g_timer_tail) {
         //DEBUG("F:%s,f:%s,L:%d,[RECHK]: timer_id:%d, sec:%ld repeat:%d\n", __FILE__, __func__, __LINE__,tmpNode->timer_id, tmpNode->sec, tmpNode->repeat);
-        if (tmpNode->sec > 0) {//任务链表时有序的，如果当前节点没到时间，则其后节点一定也没到时间
+        //任务链表是有序的，如果当前节点没到时间，则其后节点一定也没到时间
+        if (tmpNode->sec > 0) {
             break;
         } else {
             tmpNode->prev->next = tmpNode->next;
@@ -128,12 +186,80 @@ static int sigalarm_init(void)
     return ret;
 }
 
+//线程数据处理
+static void thread_data_handle(TimerThread *threadData)
+{
+    DEBUG("F:%s,f:%s,L:%d [PID:%lu] start data handle\n", __FILE__, __func__, __LINE__, pthread_self());
+    int i = 0;
+    TimerNode *timerNode = NULL;
+    for (i = 0; i < MAX_ARRAY_SIZE; i++) {
+        DEBUG("F:%s,f:%s,L:%d  i=%d\n", __FILE__, __func__, __LINE__,i);
+        timerNode = threadData->timerArray[i];
+        if (timerNode != NULL) {
+            DEBUG("F:%s,f:%s,L:%d [PID:%lu] handle index:%d timerID:%u\n", __FILE__, __func__, __LINE__, pthread_self(), i, timerNode->timer_id);
+            DEBUG("[%ld]F:%s,f:%s,L:%d  timer_cb start---------------------------------------\n", time(NULL),__FILE__, __func__, __LINE__);
+            timerNode->timer_cb(timerNode->arg);
+            DEBUG("[%ld]F:%s,f:%s,L:%d  timer_cb end++++++++++++++++++++++++++++++++++++++++++\n", time(NULL), __FILE__, __func__, __LINE__);
+            threadData->timerArray[i] = NULL;
+        }
+    }
+    threadData->haveData = 0;
+    DEBUG("F:%s,f:%s,L:%d [PID:%lu] end data handle\n", __FILE__, __func__, __LINE__, pthread_self());
+}
+
+//线程处理函数
+static void* timer_thread_handle(void *arg)
+{
+    DEBUG("F:%s,f:%s,L:%d [PID:%lu] start\n", __FILE__, __func__, __LINE__, pthread_self());
+    TimerThread *threadData = (TimerThread*)arg;
+    if (threadData->threadID != pthread_self()) {
+        printf("threadData->threadID:%lu, pthread_self:%lu, error\n",threadData->threadID, pthread_self());
+        return 0;
+    }
+
+    pthread_mutex_lock(threadData->mutex);
+    while (1){
+        while (threadData->haveData == 0) {
+            DEBUG("F:%s,f:%s,L:%d [PID:%lu] cond wait...\n", __FILE__, __func__, __LINE__, pthread_self());
+            pthread_cond_wait(threadData->cond, threadData->mutex);
+        }
+        DEBUG("F:%s,f:%s,L:%d [PID:%lu] cond wake up\n", __FILE__, __func__, __LINE__, pthread_self());
+        thread_data_handle(threadData);
+    }
+    DEBUG("F:%s,f:%s,L:%d [PID:%lu] end\n", __FILE__, __func__, __LINE__, pthread_self());
+    pthread_mutex_unlock(threadData->mutex);
+    return 0;
+}
+
+// 初始化处理定时任务的线程
+static int pthread_init(void)
+{
+    int i = 0, ret = -1;
+    ThreadArray = calloc(MAX_THREAD_COUNT, sizeof(TimerThread));
+    for (i = 0; i < MAX_THREAD_COUNT; i++) {
+        ThreadArray[i].mutex = calloc(1, sizeof(pthread_mutex_t));
+        ThreadArray[i].cond = calloc(1, sizeof(pthread_cond_t));
+        if (ThreadArray[i].mutex == NULL || ThreadArray[i].cond == NULL) {
+            printf("F:%s,f:%s,L:%d thread %d, calloc mutex or cond error!\n", __FILE__, __func__, __LINE__, i);
+            continue;
+        }
+        pthread_mutex_init(ThreadArray[i].mutex, NULL);
+        pthread_cond_init(ThreadArray[i].cond, NULL);
+        ret = pthread_create(&ThreadArray[i].threadID, NULL, timer_thread_handle, &ThreadArray[i]);
+        if (ret == -1)
+            printf("F:%s,f:%s,L:%d pthread_create %d error!\n", __FILE__, __func__, __LINE__, i);
+        DEBUG("F:%s,f:%s,L:%d pthread_create %d [PID:%lu] success!\n", __FILE__, __func__, __LINE__, i, ThreadArray[i].threadID);
+    }
+}
 
 // 初始化定时器链表
 static int timer_init(void)
 {
     int ret = -1;
     DEBUG("F:%s,f:%s,L:%d start\n", __FILE__, __func__, __LINE__);
+    //初始定时器处理线程,把时间到的定时任务分发给这些线程
+    pthread_init();
+
     //初始链表头节点和尾节点
     g_timer_head = calloc(1, sizeof(TimerNode));
     g_timer_tail = calloc(1, sizeof(TimerNode));
@@ -146,7 +272,7 @@ static int timer_init(void)
     g_timer_head->prev = NULL;
     g_timer_tail->next = NULL;
 
-    //初始互斥锁，用于多线程并发访问
+    //初始互斥锁，用于多线程并发添加或删除定时任务
     g_mutex = calloc(1, sizeof(pthread_mutex_t));
     ret = pthread_mutex_init(g_mutex, NULL);
     if (ret != 0) {

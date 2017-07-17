@@ -37,6 +37,7 @@ typedef struct ThreadData{
     pthread_mutex_t *mutex;
     pthread_cond_t *cond;
     TimerNode *timerArray[MAX_ARRAY_SIZE];
+    int arrindex;
     int haveData;
 }TimerThread;
 
@@ -57,16 +58,35 @@ static int timer_dispatch(TimerNode *timerNode)
 {
     DEBUG("F:%s,f:%s,L:%d\n",  __FILE__, __func__, __LINE__);
     int i = 0, j = 0, index = 0, size = 0;
+    //查看排队队列中是否已经有这个定时任务，有则不再重复添加
+    for (i = 0; i < MAX_THREAD_COUNT; i++) {
+        for (j = 0; j < MAX_ARRAY_SIZE; j++) {
+            if (ThreadArray[i].timerArray[j] != NULL) {
+                if (ThreadArray[i].timerArray[j]->timer_id == timerNode->timer_id) {
+                    printf("F:%s,f:%s,L:%d, timerNode[ID:%u] already add in ThreadArray[%d].timerArray[%d] \n", 
+                            __FILE__, __func__, __LINE__, timerNode->timer_id, i, j);
+                    return 0;
+                }
+            }
+        }
+    }
+    
+    //排队队列中没有这个定时任务，添加
     //找一个当前没有任务的线程
     for (i = 0; i < MAX_THREAD_COUNT; i++) {
         if (ThreadArray[i].haveData == 0) {
-            ThreadArray[i].timerArray[0] = timerNode;
-            ThreadArray[i].haveData++;
-            DEBUG("F:%s,f:%s,L:%d, wake up [PID:%lu]\n",  __FILE__, __func__, __LINE__, ThreadArray[i].threadID);
-            pthread_cond_signal(ThreadArray[i].cond);
-            return 0;
+            for (j = 0; j < MAX_ARRAY_SIZE; j++) {
+                if (ThreadArray[i].timerArray[j] == NULL) {
+                    ThreadArray[i].timerArray[j] = timerNode;
+                    ThreadArray[i].haveData++;
+                    DEBUG("F:%s,f:%s,L:%d, wake up [PID:%lu]\n",  __FILE__, __func__, __LINE__, ThreadArray[i].threadID);
+                    pthread_cond_signal(ThreadArray[i].cond);
+                    return 0;
+                }
+            }
         }
     }
+
     //找一个负载最小的线程分发
     size = ThreadArray[0].haveData;
     for (i = 0; i < MAX_THREAD_COUNT; i++) {
@@ -76,10 +96,14 @@ static int timer_dispatch(TimerNode *timerNode)
         }
     }
     DEBUG("F:%s,f:%s,L:%d, index = %d [PID:%lu]\n",  __FILE__, __func__, __LINE__, index,ThreadArray[index].threadID);
+    //在正在处理的元素后面开始添加
     //pthread_mutex_lock(ThreadArray[index].mutex);
-    for (j = 0; j < MAX_ARRAY_SIZE; j++) {
-        printf("F:%s,f:%s,L:%d, ThreadArray[%d].timerArray[%d] = %p\n", __FILE__, __func__, __LINE__,index, j, ThreadArray[index].timerArray[j]);
-        if (ThreadArray[index].timerArray[j] == NULL) {
+    for (j = ThreadArray[index].arrindex; j < MAX_ARRAY_SIZE; j++) {
+        if (ThreadArray[index].timerArray[j] != NULL) {
+            printf("F:%s,f:%s,L:%d, ThreadArray[%d].timerArray[%d].timer_id=%u\n", __FILE__, __func__, __LINE__,index, j, ThreadArray[index].timerArray[j]->timer_id);
+        } else {
+            printf("F:%s,f:%s,L:%d, add timerNode[ID:%u] to ThreadArray[%d].timerArray[%d]\n", 
+                    __FILE__, __func__, __LINE__,timerNode->timer_id, index, j);
             ThreadArray[index].timerArray[j] = timerNode;
             ThreadArray[index].haveData++;
             //pthread_mutex_unlock(ThreadArray[index].mutex);
@@ -194,6 +218,7 @@ static void thread_data_handle(TimerThread *threadData)
     TimerNode *timerNode = NULL;
     for (i = 0; i < MAX_ARRAY_SIZE; i++) {
         DEBUG("F:%s,f:%s,L:%d  i=%d\n", __FILE__, __func__, __LINE__,i);
+        threadData->arrindex = i;
         timerNode = threadData->timerArray[i];
         if (timerNode != NULL) {
             DEBUG("F:%s,f:%s,L:%d [PID:%lu] handle index:%d timerID:%u\n", __FILE__, __func__, __LINE__, pthread_self(), i, timerNode->timer_id);
@@ -203,6 +228,7 @@ static void thread_data_handle(TimerThread *threadData)
             threadData->timerArray[i] = NULL;
         }
     }
+    threadData->arrindex = 0;
     threadData->haveData = 0;
     DEBUG("F:%s,f:%s,L:%d [PID:%lu] end data handle\n", __FILE__, __func__, __LINE__, pthread_self());
 }
@@ -335,7 +361,7 @@ int timer_add(int sec, TimerFunc *timer_cb, void *arg, int repeat)
     newNode->prev = tmpNode->prev;
     newNode->next = tmpNode;
     tmpNode->prev = newNode;
-    DEBUG("F:%s,f:%s,L:%d,[ADD]: timer_id:%d, sec:%ld repeat:%d\n", __FILE__, __func__, __LINE__,newNode->timer_id, newNode->sec, newNode->repeat);
+    printf("F:%s,f:%s,L:%d,[ADD]: timer_id:%d, sec:%ld repeat:%d\n", __FILE__, __func__, __LINE__,newNode->timer_id, newNode->sec, newNode->repeat);
     pthread_mutex_unlock(g_mutex);
     DEBUG("[PID:%lu] unlocked\n", pthread_self());
     return newNode->timer_id;

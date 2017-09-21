@@ -41,15 +41,28 @@ void cut_content_to_units(char *content, char **units, int unitCnt, char *split)
     }
 }
 
-// 递归删除字符串中特定的字符
-void delete_str_characters(char *str, char ch )
+// 递归删除字符串中特定的字符串，可以完全取代delete_str_character()
+void delete_str_characters(char *str, char *delstr )
+{
+    char *p1 = NULL, *p2 = NULL;
+    p1 = strstr(str, delstr);
+    if (p1 != NULL) {
+        p2 = p1;
+        p1 += strlen(delstr);
+        delete_str_characters(p1, delstr);
+        memmove(p2, p1, strlen(p1) + 1);
+    }
+}
+
+// 递归删除字符串中特定的字符,可以被delete_str_characters()取代
+void delete_str_character(char *str, char ch )
 {
     char *p1 = NULL, *p2 = NULL;
     p1 = strchr(str, ch);
     if (p1 != NULL) {
         p2 = p1;
         p1 ++;
-        delete_str_characters(p1, ch);
+        delete_str_character(p1, ch);
         memmove(p2, p1, strlen(p1) + 1);
     } 
 }
@@ -74,9 +87,11 @@ int main()
 {
     char str[] = "    a bc de f  ghi     jk               lm n   ";
     printf("str:%s\n",str);
-    delete_str_characters(str, ' ');
+    delete_str_character(str, ' ');
     printf("str:%s\n",str);
-    delete_str_between_characters(str, 'a', 'n');
+    delete_str_characters(str, "abc");
+    printf("str:%s\n",str);
+    delete_str_characters(str, "lmn");
     printf("str:%s\n",str);
 
     return 0;

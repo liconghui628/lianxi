@@ -1,0 +1,2 @@
+gcc socket_serial_passthrough.c -lpthread
+sudo ./a.out 

@@ -8,6 +8,7 @@
 
 int getPidByName(char* task_name)
 {
+    int find = 0;
 	int pid = -1;
 	DIR *dir;
 	struct dirent *ptr;
@@ -41,16 +42,22 @@ int getPidByName(char* task_name)
 				cur_task_name[PATH_SIZE - 1] = '\0';
 
 				if (!strncmp(task_name, cur_task_name, PATH_SIZE)) {
+                    find = 1;
 					fclose(fp);
 					break;
 				}
 				fclose(fp);
 			}
 		}
-		closedir(dir);
 	}
 
-	return pid;
+    if (dir)
+        closedir(dir);
+
+    if (find)
+        return pid;
+    else 
+        return -1;
 } 
 
 void getNameByPid(pid_t pid, char *task_name) 
@@ -67,3 +74,9 @@ void getNameByPid(pid_t pid, char *task_name)
 	}
 } 
 
+int main ()
+{
+    int pid = getPidByName("telnetd");
+    printf("pid=%d\n", pid);
+    return 0;
+}

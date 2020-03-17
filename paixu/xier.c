@@ -32,10 +32,10 @@ void printArray(int array[], int num)
 int main()
 {
 	int array[5] = {5,8,4,3,9};
-	maopao(array, sizeof(array)/sizeof(array[0]));
+	xier(array, sizeof(array)/sizeof(array[0]));
 	printArray(array, sizeof(array)/sizeof(array[0]));
 
 	int array1[8] = {0,5,1,8,4,3,9,1};
-	maopao(array1, sizeof(array1)/sizeof(array1[0]));
+	xier(array1, sizeof(array1)/sizeof(array1[0]));
 	printArray(array1, sizeof(array1)/sizeof(array1[0]));
 }

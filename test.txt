@@ -1,0 +1,100 @@
+一层结构：
+json =
+{
+    "name": "LiConghui",
+    "age":  18,
+    "weight": 58.6,
+}
+
+struct:
+typedef struct
+{
+	S8 name[32];
+	S32 age;
+	DOUBLE weight;
+}Peopel;
+
+map:
+StructMap map[] = 
+{
+    {"name", STRUCTOFFSET(People, name), JSON_String},
+    {"age", STRUCTOFFSET(People, age), JSON_Int},
+    {"weight", STRUCTOFFSET(People, weight), JSON_Double},
+}
+
+接口调用
+People people;
+ret = JSON_To_Struct(json, &people, map, sizeof(map)/sizeof(map[0]));
+
+
+二层结构
+json =
+{
+    "name": "LiConghui",
+    "age":  18,
+    "weight":       58.6,
+    "child":{
+        "sex":  "girl",
+        "height":  70,
+    }
+}
+
+struct:
+typedef struct{
+    S8 sex[32];
+    S32 height;
+}Child;
+
+typedef struct {
+    S8 name[32];
+    int age;
+    double weight;
+    Child child;
+}People;
+
+map:
+StructMap map[] = 
+{
+    {"name", STRUCTOFFSET(People, name), JSON_String},
+    {"age", STRUCTOFFSET(People, age), JSON_Int},
+    {"weight", STRUCTOFFSET(People, weight), JSON_Double},
+    {"child", STRUCTOFFSET(People, child), JSON_Struct},
+    {"sex", STRUCTOFFSET(People, child) + STRUCTOFFSET(Child, sex), JSON_String},
+    {"height", STRUCTOFFSET(People, child) + STRUCTOFFSET(Child, height), JSON_Int},
+}
+
+接口调用：
+People people;
+ret = JSON_To_Struct(json, &people, map, sizeof(map)/sizeof(map[0]));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
